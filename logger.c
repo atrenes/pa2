@@ -18,38 +18,38 @@ void open_logfiles(void) {
 }
 
 void log_started(struct my_process *proc) {
-    int len = snprintf(NULL, 0, log_started_fmt, proc->this_id, proc->this_pid, proc->parent_pid);
+    int len = snprintf(NULL, 0, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
     char *buffer = malloc(sizeof(char) * len);
-    snprintf(buffer, len+1, log_started_fmt, proc->this_id, proc->this_pid, proc->parent_pid);
+    snprintf(buffer, len+1, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
     write(event_logfile, buffer, strlen(buffer));
-    printf(log_started_fmt, proc->this_id, proc->this_pid, proc->parent_pid);
+    printf(log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
     free(buffer);
 }
 
 void log_received_all_started(struct my_process *proc) {
-    int len = snprintf(NULL, 0, log_received_all_started_fmt, proc->this_id);
+    int len = snprintf(NULL, 0, log_received_all_started_fmt, get_physical_time(), proc->this_id);
     char *buffer = malloc(sizeof(char) * len);
-    snprintf(buffer, len+1, log_received_all_started_fmt, proc->this_id);
+    snprintf(buffer, len+1, log_received_all_started_fmt, get_physical_time(), proc->this_id);
     write(event_logfile, buffer, strlen(buffer));
-    printf(log_received_all_started_fmt, proc->this_id);
+    printf(log_received_all_started_fmt, get_physical_time(), proc->this_id);
     free(buffer);
 }
 
 void log_done(struct my_process *proc) {
-    int len = snprintf(NULL, 0, log_done_fmt, proc->this_id);
+    int len = snprintf(NULL, 0, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
     char *buffer = malloc(sizeof(char) * len);
-    snprintf(buffer, len+1, log_done_fmt, proc->this_id);
+    snprintf(buffer, len+1, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
     write(event_logfile, buffer, strlen(buffer));
-    printf(log_done_fmt, proc->this_id);
+    printf(log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
     free(buffer);
 }
 
 void log_received_all_done(struct my_process *proc) {
-    int len = snprintf(NULL, 0, log_received_all_done_fmt, proc->this_id);
+    int len = snprintf(NULL, 0, log_received_all_done_fmt, get_physical_time(), proc->this_id);
     char *buffer = malloc(sizeof(char) * len);
-    snprintf(buffer, len+1, log_received_all_done_fmt, proc->this_id);
+    snprintf(buffer, len+1, log_received_all_done_fmt, get_physical_time(), proc->this_id);
     write(event_logfile, buffer, strlen(buffer));
-    printf(log_received_all_done_fmt, proc->this_id);
+    printf(log_received_all_done_fmt, get_physical_time(), proc->this_id);
     free(buffer);
 }
 

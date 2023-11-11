@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "pa2345_starter_code/banking.h"
 
 #define PARENT_ID 0
 
@@ -21,7 +22,8 @@ struct my_process {
     int proc_num;
     int *read_fd;
     int *write_fd;
-
+    BalanceHistory balance_history;
+    BalanceState balance_state;
 };
 
 int create_pipe_pool(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]);
