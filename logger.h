@@ -7,8 +7,8 @@
 #ifndef RASPRED1_LOGGER_H
 #define RASPRED1_LOGGER_H
 
-#include "common/common.h"
-#include "pa2345_starter_code/pa2345.h"
+#include "common.h"
+#include "pa2345.h"
 #include "utility.h"
 #include <stdio.h>
 #include <sys/file.h>

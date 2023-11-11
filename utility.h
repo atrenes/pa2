@@ -6,12 +6,12 @@
 
 #ifndef RASPRED1_UTILITY_H
 #define RASPRED1_UTILITY_H
-#include "common/ipc.h"
+#include "ipc.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "pa2345_starter_code/banking.h"
+#include "banking.h"
 
 #define PARENT_ID 0
 

@@ -4,7 +4,7 @@
  * @date October, 2023
  */
 
-#include "common/ipc.h"
+#include "ipc.h"
 #include "utility.h"
 
 int send(void * self, local_id dst, const Message * msg) {

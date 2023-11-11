@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include "logger.h"
 #include <string.h>
-#include "pa2345_starter_code/pa2345.h"
 
 int event_logfile;
 int pipes_logfile;
