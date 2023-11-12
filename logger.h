@@ -21,6 +21,8 @@ void log_started(struct my_process *proc);
 void log_received_all_started(struct my_process *proc);
 void log_done(struct my_process *proc);
 void log_received_all_done(struct my_process *proc);
+void log_transfer_in(TransferOrder *order);
+void log_transfer_out(TransferOrder *order);
 void log_created_pipe(int read_fd, int write_fd);
 void log_closed_fd(int fd);
 void close_logfiles(void);

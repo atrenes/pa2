@@ -33,7 +33,7 @@ void get_fds(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2], str
     }
 }
 
-struct my_process *split(struct my_process *proc) {
+struct my_process *split(struct my_process *proc, const balance_t *balance) {
     int cur_pid;
     for (local_id i = 1 ; i < (local_id) proc->proc_num + 1 ; i++) {
         cur_pid = fork();
@@ -48,22 +48,34 @@ struct my_process *split(struct my_process *proc) {
             child->proc_num = proc->proc_num;
             child->read_fd = malloc(sizeof(int) * (proc->proc_num + 1));
             child->write_fd = malloc(sizeof(int) * (proc->proc_num + 1));
+
+            child->balance_state.s_balance_pending_in = 0;
+            child->balance_state.s_balance = balance[i - 1];
+            child->balance_state.s_time = 0;
+
+            child->balance_history.s_id = i;
+            child->balance_history.s_history_len = 1;
+            child->balance_history.s_history[0] = proc->balance_state;
             return child;
         }
     }
     return proc;
 }
 
-Message create_message(MessageType type, char* message) {
+Message create_message(MessageType type, void* message, int size) {
     Message m;
     m.s_header.s_magic = MESSAGE_MAGIC;
     m.s_header.s_type = type;
-    m.s_header.s_payload_len = strlen(message);
-    strcpy(m.s_payload, message);
+    m.s_header.s_local_time = get_physical_time();
+
+    if (message != NULL) {
+        m.s_header.s_payload_len = size;
+        memcpy(&(m.s_payload), message, size);
+    }
     return m;
 }
 
-void destroy_pipes(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]) {
+void destroy_all_pipes(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]) {
     for (int i = 0 ; i < all_proc_num ; i++) {
         for (int j = 0 ; j < all_proc_num ; j++) {
             if (i != j) {
