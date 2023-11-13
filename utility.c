@@ -67,10 +67,11 @@ Message create_message(MessageType type, void* message, int size) {
     m.s_header.s_magic = MESSAGE_MAGIC;
     m.s_header.s_type = type;
     m.s_header.s_local_time = get_physical_time();
+    m.s_header.s_payload_len = size;
 
     if (message != NULL) {
-        m.s_header.s_payload_len = size;
-        memcpy(&(m.s_payload), message, size);
+        memcpy(m.s_payload, message, m.s_header.s_payload_len);
+//        memcpy(&(m.s_payload), message, size);
     }
     return m;
 }
@@ -217,4 +218,111 @@ void print_history(const AllHistory * history) {
     }
     printf("\n");
     printf("%s", hline);
+}
+
+void update_history(BalanceHistory *history, BalanceState state) {
+    if (state.s_time >= history->s_history_len - 1) {
+        for (timestamp_t t = history->s_history_len; t < state.s_time; t++) {
+            history->s_history[t] = history->s_history[t-1];
+            history->s_history[t].s_time = t;
+        }
+        history->s_history[state.s_time] = state;
+        history->s_history_len = state.s_time + 1;
+    }
+}
+
+void handle_transaction(struct my_process *proc, Message *msg) {
+    proc->balance_state.s_time = get_physical_time();
+
+    TransferOrder *order = (TransferOrder*) msg->s_payload;
+
+    if (proc->this_id == order->s_src) { // sender
+        proc->balance_state.s_balance -= order->s_amount;
+        update_history(&(proc->balance_history), proc->balance_state);
+        send(proc, order->s_dst, msg);
+    }
+    if (proc->this_id == order->s_dst) { // receiver
+        proc->balance_state.s_balance += order->s_amount;
+        update_history(&(proc->balance_history), proc->balance_state);
+        Message m = create_message(ACK, NULL, 0);
+        send(proc, PARENT_ID, &m);
+    }
+}
+
+void child_send_done_to_all(struct my_process *proc) {
+    char *buf = malloc(sizeof(char) * MAX_MESSAGE_LEN);
+    snprintf(buf, MAX_MESSAGE_LEN, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
+    Message m = create_message(DONE, buf, (int) strlen(buf));
+    free(buf);
+
+    send_multicast(proc, &m);
+    log_done(proc);
+}
+
+void parent_receive_all_started(struct my_process *proc, int proc_num) {
+    Message m;
+    int received_num = 0;
+    while (received_num != proc_num) {
+        receive_any(proc, &m);
+        if (m.s_header.s_type == STARTED) {
+            received_num++;
+        }
+    }
+}
+
+void parent_send_stop_to_all(struct my_process *proc) {
+    Message m_stop = create_message(STOP, NULL, 0);
+
+    send_multicast(proc, &m_stop);
+}
+
+void parent_receive_all_done(struct my_process *proc, int proc_num) {
+    Message m;
+    int received_num = 0;
+    while (received_num != proc_num) {
+        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
+            receive(proc, i, &m);
+            if (m.s_header.s_type == DONE) {
+                received_num++;
+            }
+        }
+    }
+}
+
+void parent_receive_all_history(struct my_process *proc, int proc_num, BalanceHistory *history) {
+    char* buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
+    Message m_balance = create_message(STOP, buffer, (int) strlen(buffer));
+    int received_num = 0;
+
+
+    while (received_num != proc_num) {
+        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
+            receive(proc, i, &m_balance);
+            if (m_balance.s_header.s_type == BALANCE_HISTORY) {
+                received_num++;
+                history[i] = *((BalanceHistory*) m_balance.s_payload);
+            }
+        }
+    }
+}
+
+void child_send_and_receive_started(struct my_process *proc, int proc_num) {
+    char *buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
+    snprintf(buffer, MAX_MESSAGE_LEN, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
+    Message m = create_message(STARTED, buffer, (int) strlen(buffer));
+
+    send_multicast(proc, &m);
+    log_started(proc);
+
+    int received_num = 0;
+    while (received_num != proc_num - 1) {
+        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
+            if (i != proc->this_id) {
+                receive(proc, i, &m);
+                if (m.s_header.s_type == STARTED) {
+                    received_num++;
+                }
+            }
+        }
+    }
 }

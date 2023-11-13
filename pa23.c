@@ -28,44 +28,36 @@ void transfer(void * parent_data, local_id src, local_id dst,
         receive(proc, dst, &msg_rec);
     }
 
-    log_transfer_out(&order);
+    log_transfer_in(&order);
 }
 
 void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_num+1][proc_num+1][2]) {
-    char *buf = malloc(sizeof(char) * MAX_MESSAGE_LEN);
-    Message m = create_message(STOP, buf, (int) strlen(buf));
-    int received_num = 0;
-    while (received_num != proc_num) {
-        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            receive(proc, i, &m);
-            if (m.s_header.s_type == STARTED) {
-                received_num++;
-            }
-        }
-    }
-
+    parent_receive_all_started(proc, proc_num);
     log_received_all_started(proc);
 
     bank_robbery(proc, (local_id) proc_num);
 
     //send stop
-    char *buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
-    snprintf(buffer, MAX_MESSAGE_LEN, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
-    Message m_stop = create_message(STOP, buffer, (int) strlen(buffer));
+    parent_send_stop_to_all(proc);
 
-    send_multicast(proc, &m_stop);
+    parent_receive_all_done(proc, proc_num);
+    log_received_all_done(proc);
 
-    received_num = 0;
-    while (received_num != proc_num) {
-        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            receive(proc, i, &m);
-            if (m.s_header.s_type == DONE) {
-                received_num++;
-            }
-        }
+    //get BALANCE_HISTORY from every process
+    BalanceHistory history[proc_num];
+
+    parent_receive_all_history(proc, proc_num, history);
+
+    AllHistory all_history = {
+            .s_history_len = proc_num
+    };
+
+    for (local_id i = 1 ; i < proc_num + 1 ; i++) {
+        all_history.s_history[i] = history[i];
     }
 
-    log_received_all_done(proc);
+    print_history(&all_history);
+
     for (int i = 0 ; i < proc_num ; i++) {
         wait(NULL);
     }
@@ -75,53 +67,52 @@ void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_n
 }
 
 void child_function(struct my_process *proc, int proc_num) {
-    char *buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
-    snprintf(buffer, MAX_MESSAGE_LEN, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
-    Message m = create_message(STARTED, buffer, (int) strlen(buffer));
-
-    send_multicast(proc, &m);
-    log_started(proc);
-
-    int received_num = 0;
-    while (received_num != proc_num - 1) {
-        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            if (i != proc->this_id) {
-                receive(proc, i, &m);
-                if (m.s_header.s_type == STARTED) {
-                    received_num++;
-                }
-            }
-        }
-    }
+    child_send_and_receive_started(proc, proc_num);
 
     log_received_all_started(proc);
 
     //work from there
 
+    int done = 0;
+    timestamp_t stop;
+    while (done != proc->proc_num - 1) {
+        Message msg_rcv;
 
+        receive_any(proc, &msg_rcv);
 
-    //work to here
+        switch (msg_rcv.s_header.s_type) {
+            case TRANSFER:
+                handle_transaction(proc, &msg_rcv);
+                break;
 
-    snprintf(buffer, MAX_MESSAGE_LEN, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
-    m = create_message(DONE, buffer, (int) strlen(buffer));
-    free(buffer);
+            case STOP:
+                child_send_done_to_all(proc);
+                stop = get_physical_time();
+                break;
 
-    send_multicast(proc, &m);
-    log_done(proc);
+            case DONE:
+                done++;
+                break;
 
-    received_num = 0;
-    while (received_num != proc_num - 1) {
-        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            if (i != proc->this_id) {
-                receive(proc, i, &m);
-                if (m.s_header.s_type == DONE) {
-                    received_num++;
-                }
-            }
+            default:
+                break;
         }
     }
 
     log_received_all_done(proc);
+    //work to here
+
+    proc->balance_state = proc->balance_history.s_history[proc->balance_history.s_history_len-1];
+    proc->balance_state.s_time = stop;
+    update_history(&(proc->balance_history), proc->balance_state);
+
+    Message balance_msg = create_message(BALANCE_HISTORY,
+                                         &(proc->balance_history),
+                                         (proc->balance_history.s_history_len) * sizeof(BalanceState)
+                                         + sizeof(proc->balance_history.s_history_len)
+                                         + sizeof(proc->balance_history.s_id));
+    send(proc, PARENT_ID, &balance_msg);
+
     exit(0);
 }
 
