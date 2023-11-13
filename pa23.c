@@ -4,6 +4,9 @@
 #include "utility.h"
 #include "logger.h"
 #include <sys/wait.h>
+#include <stdbool.h>
+
+#define reach printf("\treach\n");
 
 void transfer(void * parent_data, local_id src, local_id dst,
               balance_t amount) {
@@ -17,14 +20,12 @@ void transfer(void * parent_data, local_id src, local_id dst,
 
     Message msg_send = create_message(TRANSFER, &order, sizeof(order));
 
-    send(proc, dst, &msg_send);
-
+    send(proc, src, &msg_send);
     log_transfer_out(&order);
 
     Message msg_rec;
-    msg_rec.s_header.s_type = STOP; //stub
 
-    while(msg_rec.s_header.s_type != ACK) {
+    while (msg_rec.s_header.s_type != ACK) {
         receive(proc, dst, &msg_rec);
     }
 
@@ -75,17 +76,21 @@ void child_function(struct my_process *proc, int proc_num) {
 
     int done = 0;
     timestamp_t stop;
-    while (done != proc->proc_num - 1) {
+    bool stop_received = false;
+    while (done != proc_num - 1 && !stop_received) {
         Message msg_rcv;
 
-        receive_any(proc, &msg_rcv);
+        if (receive_any(proc, &msg_rcv) != 0) {
+            continue;
+        }
 
         switch (msg_rcv.s_header.s_type) {
             case TRANSFER:
-                handle_transaction(proc, &msg_rcv);
+                handle_transaction(proc, &msg_rcv, stop_received);
                 break;
 
             case STOP:
+                stop_received = true;
                 child_send_done_to_all(proc);
                 stop = get_physical_time();
                 break;
@@ -102,6 +107,8 @@ void child_function(struct my_process *proc, int proc_num) {
     log_received_all_done(proc);
     //work to here
 
+    //here segfault occurs
+
     proc->balance_state = proc->balance_history.s_history[proc->balance_history.s_history_len-1];
     proc->balance_state.s_time = stop;
     update_history(&(proc->balance_history), proc->balance_state);
@@ -111,6 +118,7 @@ void child_function(struct my_process *proc, int proc_num) {
                                          (proc->balance_history.s_history_len) * sizeof(BalanceState)
                                          + sizeof(proc->balance_history.s_history_len)
                                          + sizeof(proc->balance_history.s_id));
+
     send(proc, PARENT_ID, &balance_msg);
 
     exit(0);

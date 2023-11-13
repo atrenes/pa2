@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "banking.h"
+#include <stdbool.h>
 
 #define PARENT_ID 0
 
@@ -32,8 +33,7 @@ struct my_process *split(struct my_process *proc, const balance_t *balance);
 Message create_message(MessageType type, void* message, int size);
 void destroy_all_pipes(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]);
 void destroy_unused_pipes(struct my_process *proc, int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]);
-void print_history(const AllHistory * history);
-void handle_transaction(struct my_process *proc, Message *msg);
+void handle_transaction(struct my_process *proc, Message *msg, bool stop_received);
 void child_send_done_to_all(struct my_process *proc);
 void parent_receive_all_started(struct my_process *proc, int proc_num);
 void parent_send_stop_to_all(struct my_process *proc);

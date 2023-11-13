@@ -6,6 +6,7 @@
 
 #include "utility.h"
 #include "logger.h"
+#define reach printf("\treach\n");
 
 int create_pipe_pool(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]) {
     for (int i = 0 ; i < all_proc_num ; i++) {
@@ -71,7 +72,6 @@ Message create_message(MessageType type, void* message, int size) {
 
     if (message != NULL) {
         memcpy(m.s_payload, message, m.s_header.s_payload_len);
-//        memcpy(&(m.s_payload), message, size);
     }
     return m;
 }
@@ -231,32 +231,36 @@ void update_history(BalanceHistory *history, BalanceState state) {
     }
 }
 
-void handle_transaction(struct my_process *proc, Message *msg) {
+void handle_transaction(struct my_process *proc, Message *msg, bool stop_received) {
     proc->balance_state.s_time = get_physical_time();
 
     TransferOrder *order = (TransferOrder*) msg->s_payload;
 
-    if (proc->this_id == order->s_src) { // sender
+    if (proc->this_id == order->s_src && !stop_received) { // can't send after STOP is received
         proc->balance_state.s_balance -= order->s_amount;
         update_history(&(proc->balance_history), proc->balance_state);
         send(proc, order->s_dst, msg);
+        return;
     }
     if (proc->this_id == order->s_dst) { // receiver
         proc->balance_state.s_balance += order->s_amount;
         update_history(&(proc->balance_history), proc->balance_state);
         Message m = create_message(ACK, NULL, 0);
         send(proc, PARENT_ID, &m);
+        return;
     }
 }
 
 void child_send_done_to_all(struct my_process *proc) {
-    char *buf = malloc(sizeof(char) * MAX_MESSAGE_LEN);
-    snprintf(buf, MAX_MESSAGE_LEN, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
-    Message m = create_message(DONE, buf, (int) strlen(buf));
-    free(buf);
+    int len = snprintf(NULL, 0, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
+    char *buffer = malloc(sizeof(char) * len);
+    snprintf(buffer, len+1, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
 
+    Message m = create_message(DONE, buffer, len);
     send_multicast(proc, &m);
+
     log_done(proc);
+    free(buffer);
 }
 
 void parent_receive_all_started(struct my_process *proc, int proc_num) {
@@ -290,17 +294,22 @@ void parent_receive_all_done(struct my_process *proc, int proc_num) {
 }
 
 void parent_receive_all_history(struct my_process *proc, int proc_num, BalanceHistory *history) {
-    char* buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
-    Message m_balance = create_message(STOP, buffer, (int) strlen(buffer));
+    Message m_balance;
     int received_num = 0;
-
 
     while (received_num != proc_num) {
         for (local_id i = 1 ; i < proc_num + 1 ; i++) {
             receive(proc, i, &m_balance);
             if (m_balance.s_header.s_type == BALANCE_HISTORY) {
+                reach
                 received_num++;
-                history[i] = *((BalanceHistory*) m_balance.s_payload);
+                BalanceHistory *test = (BalanceHistory*) m_balance.s_payload;
+                printf("\tlen = %d",test->s_history_len);
+                printf("\ts_id = %d", test->s_id);
+                printf("\tbalance = %d", test->s_history->s_balance);
+
+
+                //history[i] = *((BalanceHistory*) m_balance.s_payload);
             }
         }
     }
