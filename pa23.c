@@ -46,6 +46,15 @@ void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_n
 
     log_received_all_started(proc);
 
+    bank_robbery(proc, (local_id) proc_num);
+
+    //send stop
+    char *buffer = malloc(sizeof(char) * MAX_MESSAGE_LEN);
+    snprintf(buffer, MAX_MESSAGE_LEN, log_started_fmt, get_physical_time(), proc->this_id, proc->this_pid, proc->parent_pid, proc->balance_state.s_balance);
+    Message m_stop = create_message(STOP, buffer, (int) strlen(buffer));
+
+    send_multicast(proc, &m_stop);
+
     received_num = 0;
     while (received_num != proc_num) {
         for (local_id i = 1 ; i < proc_num + 1 ; i++) {
@@ -86,6 +95,12 @@ void child_function(struct my_process *proc, int proc_num) {
     }
 
     log_received_all_started(proc);
+
+    //work from there
+
+
+
+    //work to here
 
     snprintf(buffer, MAX_MESSAGE_LEN, log_done_fmt, get_physical_time(), proc->this_id, proc->balance_state.s_balance);
     m = create_message(DONE, buffer, (int) strlen(buffer));
