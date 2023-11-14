@@ -10,4 +10,5 @@ add_executable(pa2 pa23.c pa2345.h ../common/common.h ../common/ipc.h
         utility.c
         utility.h
         logger.c
-        logger.h)
+        logger.h
+        bank_robbery.c)

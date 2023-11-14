@@ -6,7 +6,6 @@
 
 #include "utility.h"
 #include "logger.h"
-#define reach printf("\treach\n");
 
 int create_pipe_pool(int all_proc_num, int pipe_pool[all_proc_num][all_proc_num][2]) {
     for (int i = 0 ; i < all_proc_num ; i++) {
@@ -298,18 +297,12 @@ void parent_receive_all_history(struct my_process *proc, int proc_num, BalanceHi
     int received_num = 0;
 
     while (received_num != proc_num) {
-        for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            receive(proc, i, &m_balance);
-            if (m_balance.s_header.s_type == BALANCE_HISTORY) {
-                reach
+        for (local_id i = 0 ; i < proc_num ; i++) {
+            if (receive(proc, i+1, &m_balance) == 0 && m_balance.s_header.s_type == BALANCE_HISTORY) {
                 received_num++;
-                BalanceHistory *test = (BalanceHistory*) m_balance.s_payload;
-                printf("\tlen = %d",test->s_history_len);
-                printf("\ts_id = %d", test->s_id);
-                printf("\tbalance = %d", test->s_history->s_balance);
-
 
                 //history[i] = *((BalanceHistory*) m_balance.s_payload);
+                memcpy(&(history[i]), (BalanceHistory*) m_balance.s_payload, m_balance.s_header.s_payload_len);
             }
         }
     }

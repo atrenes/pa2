@@ -6,8 +6,6 @@
 #include <sys/wait.h>
 #include <stdbool.h>
 
-#define reach printf("\treach\n");
-
 void transfer(void * parent_data, local_id src, local_id dst,
               balance_t amount) {
     struct my_process *proc = parent_data;
@@ -45,7 +43,7 @@ void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_n
     log_received_all_done(proc);
 
     //get BALANCE_HISTORY from every process
-    BalanceHistory history[proc_num];
+    BalanceHistory history[proc_num+1];
 
     parent_receive_all_history(proc, proc_num, history);
 
@@ -53,15 +51,11 @@ void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_n
             .s_history_len = proc_num
     };
 
-    for (local_id i = 1 ; i < proc_num + 1 ; i++) {
+    for (local_id i = 0; i < proc_num; i++) {
         all_history.s_history[i] = history[i];
     }
 
     print_history(&all_history);
-
-    for (int i = 0 ; i < proc_num ; i++) {
-        wait(NULL);
-    }
 
     destroy_all_pipes(proc_num+1, pipe_pool);
     close_logfiles();
@@ -115,9 +109,7 @@ void child_function(struct my_process *proc, int proc_num) {
 
     Message balance_msg = create_message(BALANCE_HISTORY,
                                          &(proc->balance_history),
-                                         (proc->balance_history.s_history_len) * sizeof(BalanceState)
-                                         + sizeof(proc->balance_history.s_history_len)
-                                         + sizeof(proc->balance_history.s_id));
+                                         sizeof(proc->balance_history));
 
     send(proc, PARENT_ID, &balance_msg);
 
