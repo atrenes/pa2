@@ -40,6 +40,6 @@ void parent_send_stop_to_all(struct my_process *proc);
 void parent_receive_all_done(struct my_process *proc, int proc_num);
 void parent_receive_all_history(struct my_process *proc, int proc_num, BalanceHistory *history);
 void child_send_and_receive_started(struct my_process *proc, int proc_num);
-void update_history(BalanceHistory *history, BalanceState state);
+void update_history(struct my_process *proc);
 
 #endif //RASPRED1_UTILITY_H

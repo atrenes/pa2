@@ -1,7 +1,8 @@
 /**
  * @file utility.c
  * @Author Danil Khanalainen and Anna Ershova
- * @date October, 2023
+ * @date November, 2023
+ * @brief All functions that make main() less complicated
  */
 
 #include "utility.h"
@@ -55,7 +56,7 @@ struct my_process *split(struct my_process *proc, const balance_t *balance) {
 
             child->balance_history.s_id = i;
             child->balance_history.s_history_len = 1;
-            child->balance_history.s_history[0] = proc->balance_state;
+            child->balance_history.s_history[0] = child->balance_state;
             return child;
         }
     }
@@ -219,15 +220,13 @@ void print_history(const AllHistory * history) {
     printf("%s", hline);
 }
 
-void update_history(BalanceHistory *history, BalanceState state) {
-    if (state.s_time >= history->s_history_len - 1) {
-        for (timestamp_t t = history->s_history_len; t < state.s_time; t++) {
-            history->s_history[t] = history->s_history[t-1];
-            history->s_history[t].s_time = t;
-        }
-        history->s_history[state.s_time] = state;
-        history->s_history_len = state.s_time + 1;
+void update_history(struct my_process *proc) {
+    for (timestamp_t t = proc->balance_history.s_history_len; t < proc->balance_state.s_time; t++) {
+        proc->balance_history.s_history[t] = proc->balance_history.s_history[t-1];
+        proc->balance_history.s_history[t].s_time = t;
     }
+    proc->balance_history.s_history[proc->balance_state.s_time] = proc->balance_state;
+    proc->balance_history.s_history_len = proc->balance_state.s_time + 1;
 }
 
 void handle_transaction(struct my_process *proc, Message *msg, bool stop_received) {
@@ -237,13 +236,13 @@ void handle_transaction(struct my_process *proc, Message *msg, bool stop_receive
 
     if (proc->this_id == order->s_src && !stop_received) { // can't send after STOP is received
         proc->balance_state.s_balance -= order->s_amount;
-        update_history(&(proc->balance_history), proc->balance_state);
+        update_history(proc);
         send(proc, order->s_dst, msg);
         return;
     }
     if (proc->this_id == order->s_dst) { // receiver
         proc->balance_state.s_balance += order->s_amount;
-        update_history(&(proc->balance_history), proc->balance_state);
+        update_history(proc);
         Message m = create_message(ACK, NULL, 0);
         send(proc, PARENT_ID, &m);
         return;
@@ -259,6 +258,7 @@ void child_send_done_to_all(struct my_process *proc) {
     send_multicast(proc, &m);
 
     log_done(proc);
+
     free(buffer);
 }
 
@@ -284,8 +284,7 @@ void parent_receive_all_done(struct my_process *proc, int proc_num) {
     int received_num = 0;
     while (received_num != proc_num) {
         for (local_id i = 1 ; i < proc_num + 1 ; i++) {
-            receive(proc, i, &m);
-            if (m.s_header.s_type == DONE) {
+            if (receive(proc, i, &m) == 0 && m.s_header.s_type == DONE) {
                 received_num++;
             }
         }

@@ -3,7 +3,6 @@
 #include <string.h>
 #include "utility.h"
 #include "logger.h"
-#include <sys/wait.h>
 #include <stdbool.h>
 
 void transfer(void * parent_data, local_id src, local_id dst,
@@ -101,11 +100,9 @@ void child_function(struct my_process *proc, int proc_num) {
     log_received_all_done(proc);
     //work to here
 
-    //here segfault occurs
-
     proc->balance_state = proc->balance_history.s_history[proc->balance_history.s_history_len-1];
     proc->balance_state.s_time = stop;
-    update_history(&(proc->balance_history), proc->balance_state);
+    update_history(proc);
 
     Message balance_msg = create_message(BALANCE_HISTORY,
                                          &(proc->balance_history),
