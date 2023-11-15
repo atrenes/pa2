@@ -4,6 +4,7 @@
 #include "utility.h"
 #include "logger.h"
 #include <stdbool.h>
+#include <sys/wait.h>
 
 void transfer(void * parent_data, local_id src, local_id dst,
               balance_t amount) {
@@ -56,6 +57,10 @@ void parent_function(struct my_process *proc, int proc_num, int pipe_pool[proc_n
 
     print_history(&all_history);
 
+    for (int i = 0 ; i < proc_num ; i++) {
+        wait(NULL);
+    }
+
     destroy_all_pipes(proc_num+1, pipe_pool);
     close_logfiles();
 }
@@ -78,8 +83,8 @@ void child_function(struct my_process *proc, int proc_num) {
         }
 
         switch (msg_rcv.s_header.s_type) {
-            case TRANSFER:
-                handle_transaction(proc, &msg_rcv, stop_received);
+            case DONE:
+                done++;
                 break;
 
             case STOP:
@@ -88,8 +93,8 @@ void child_function(struct my_process *proc, int proc_num) {
                 stop = get_physical_time();
                 break;
 
-            case DONE:
-                done++;
+            case TRANSFER:
+                handle_transaction(proc, &msg_rcv, stop_received);
                 break;
 
             default:
